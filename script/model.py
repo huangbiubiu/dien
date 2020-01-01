@@ -57,27 +57,18 @@ class Model(object):
             self.noclk_his_eb_sum_1 = tf.reduce_sum(self.noclk_his_eb, 2)
             self.noclk_his_eb_sum = tf.reduce_sum(self.noclk_his_eb_sum_1, 1)
 
-    def build_fcn_net(self, inp, use_dice = False):
+    def build_fcn_net(self, fc_layers, inp, use_dice = False):
         bn1 = tf.layers.batch_normalization(inputs=inp, name='bn1')
-        dnn1 = tf.layers.dense(bn1, 1024, activation=None, name='f1')
-        if use_dice:
-            dnn1 = dice(dnn1, name='dice_1')
-        else:
-            dnn1 = prelu(dnn1, 'prelu1')
 
-        dnn2 = tf.layers.dense(dnn1, 512, activation=None, name='f2')
-        if use_dice:
-            dnn2 = dice(dnn2, name='dice_2')
-        else:
-            dnn2 = prelu(dnn2, 'prelu2')
-           
-        dnn2_1 = tf.layers.dense(dnn2, 256, activation=None, name='f2_1')
-        if use_dice:
-            dnn2_1 = dice(dnn2_1, name='dice_2_1')
-        else:
-            dnn2_1 = prelu(dnn2_1, 'prelu2_1')
-            
-        dnn3 = tf.layers.dense(dnn2_1, 2, activation=None, name='f3')
+        dnn = bn1
+        for fc_idx, fc_unit in enumerate(fc_layers):
+            dnn = tf.layers.dense(bn1, fc_unit, activation=None, name='f{}'.format(fc_idx))
+            if use_dice:
+                dnn = dice(dnn, name='dice_{}'.format(fc_idx))
+            else:
+                dnn = prelu(dnn, 'prelu{}'.format(fc_idx))
+
+        dnn3 = tf.layers.dense(dnn, 2, activation=None, name='f3')
         self.y_hat = tf.nn.softmax(dnn3) + 0.00000001
 
         with tf.name_scope('Metrics'):
@@ -243,7 +234,7 @@ class Model_DIN_V2_Gru_Gru_att(Model):
         self.build_fcn_net(inp, use_dice=True)
 
 class Model_WideDeep(Model):
-    def __init__(self, n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE, use_negsampling=False):
+    def __init__(self, n_uid, n_mid, n_cat, fc_size, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE, use_negsampling=False):
         super(Model_WideDeep, self).__init__(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE,
                                         ATTENTION_SIZE,
                                         use_negsampling)
@@ -251,11 +242,11 @@ class Model_WideDeep(Model):
         inp = tf.concat([self.uid_batch_embedded, self.item_eb, self.item_his_eb_sum], 1)
         # Fully connected layer
         bn1 = tf.layers.batch_normalization(inputs=inp, name='bn1')
-        dnn1 = tf.layers.dense(bn1, 200, activation=None, name='f1')
-        dnn1 = prelu(dnn1, 'p1')
-        dnn2 = tf.layers.dense(dnn1, 80, activation=None, name='f2')
-        dnn2 = prelu(dnn2, 'p2')
-        dnn3 = tf.layers.dense(dnn2, 2, activation=None, name='f3')
+        dnn = bn1
+        for fc_idx, unit in enumerate(fc_size):
+            dnn = tf.layers.dense(dnn, unit, activation=None, name='f{}'.format(fc_idx))
+            dnn = prelu(dnn, "p{}".format(fc_idx))
+        dnn3 = tf.layers.dense(dnn, 2, activation=None, name='f3')
         d_layer_wide = tf.concat([tf.concat([self.item_eb,self.item_his_eb_sum], axis=-1),
                                 self.item_eb * self.item_his_eb_sum], axis=-1)
         d_layer_wide = tf.layers.dense(d_layer_wide, 2, activation=None, name='f_fm')
@@ -303,13 +294,13 @@ class Model_DIN_V2_Gru_QA_attGru(Model):
         self.build_fcn_net(inp, use_dice=True)
 
 class Model_DNN(Model):
-    def __init__(self, n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE, use_negsampling=False):
+    def __init__(self, n_uid, n_mid, n_cat, fc_size, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE, use_negsampling=False):
         super(Model_DNN, self).__init__(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE,
                                                           ATTENTION_SIZE,
                                                           use_negsampling)
 
         inp = tf.concat([self.uid_batch_embedded, self.item_eb, self.item_his_eb_sum], 1)
-        self.build_fcn_net(inp, use_dice=False)
+        self.build_fcn_net(inp=inp, use_dice=False, fc_layers=fc_size)
 
 class Model_PNN(Model):
     def __init__(self, n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE, use_negsampling=False):
@@ -341,7 +332,7 @@ class Model_DIN(Model):
 
 
 class Model_DIN_V2_Gru_Vec_attGru_Neg(Model):
-    def __init__(self, n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE, use_negsampling=True):
+    def __init__(self, n_uid, n_mid, n_cat, fc_size, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE, use_negsampling=True):
         super(Model_DIN_V2_Gru_Vec_attGru_Neg, self).__init__(n_uid, n_mid, n_cat,
                                                           EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE,
                                                           use_negsampling)
@@ -372,7 +363,7 @@ class Model_DIN_V2_Gru_Vec_attGru_Neg(Model):
             tf.summary.histogram('GRU2_Final_State', final_state2)
 
         inp = tf.concat([self.uid_batch_embedded, self.item_eb, self.item_his_eb_sum, self.item_eb * self.item_his_eb_sum, final_state2], 1)
-        self.build_fcn_net(inp, use_dice=True)
+        self.build_fcn_net(inp=inp, fc_layers=fc_size, use_dice=True)
 
 
 class Model_DIN_V2_Gru_Vec_attGru(Model):

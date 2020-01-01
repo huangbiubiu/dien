@@ -6,6 +6,7 @@ import time
 import random
 import sys
 from utils import *
+import argparse
 
 EMBEDDING_DIM = 18
 HIDDEN_SIZE = 18 * 2
@@ -103,6 +104,7 @@ def eval(sess, test_data, model, model_path):
     return test_auc, loss_sum, accuracy_sum, aux_loss_sum
 
 def train(
+        fc_size,
         train_file = "local_train_splitByUser",
         test_file = "local_test_splitByUser",
         uid_voc = "uid_voc.pkl",
@@ -127,7 +129,7 @@ def train(
         elif model_type == 'PNN':
             model = Model_PNN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'Wide':
-            model = Model_WideDeep(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
+            model = Model_WideDeep(n_uid, n_mid, n_cat, fc_size, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'DIN':
             model = Model_DIN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'DIN-V2-gru-att-gru':
@@ -139,7 +141,7 @@ def train(
         elif model_type == 'DIN-V2-gru-vec-attGru':
             model = Model_DIN_V2_Gru_Vec_attGru(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'DIEN':
-            model = Model_DIN_V2_Gru_Vec_attGru_Neg(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
+            model = Model_DIN_V2_Gru_Vec_attGru_Neg(n_uid, n_mid, n_cat, fc_size, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         else:
             print ("Invalid model_type : %s", model_type)
             return
@@ -178,6 +180,7 @@ def train(
             lr *= 0.5
 
 def test(
+        fc_size,
         train_file = "local_train_splitByUser",
         test_file = "local_test_splitByUser",
         uid_voc = "uid_voc.pkl",
@@ -200,7 +203,7 @@ def test(
         elif model_type == 'PNN':
             model = Model_PNN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'Wide':
-            model = Model_WideDeep(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
+            model = Model_WideDeep(n_uid, n_mid, n_cat, fc_size, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'DIN':
             model = Model_DIN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'DIN-V2-gru-att-gru':
@@ -212,7 +215,7 @@ def test(
         elif model_type == 'DIN-V2-gru-vec-attGru':
             model = Model_DIN_V2_Gru_Vec_attGru(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'DIEN':
-            model = Model_DIN_V2_Gru_Vec_attGru_Neg(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
+            model = Model_DIN_V2_Gru_Vec_attGru_Neg(n_uid, n_mid, n_cat, fc_size, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         else:
             print ("Invalid model_type : %s", model_type)
             return
@@ -220,17 +223,25 @@ def test(
         print('test_auc: %.4f ----test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % eval(sess, test_data, model, model_path))
 
 if __name__ == '__main__':
-    if len(sys.argv) == 4:
-        SEED = int(sys.argv[3])
-    else:
-        SEED = 3
+    parser = argparse.ArgumentParser(description='Train CTR prediction model')
+    parser.add_argument('mode', type=str, choices=['train', 'test'],
+                        help='train or test mode')
+    parser.add_argument('model-type', type=str, choices=['DNN', 'PNN', 'Wide', 'DIN', 'DIEN'],
+                        help="prediction model")
+    parser.add_argument('--seed', type=int, default=3, help="random seed")
+    parser.add_argument('--fc-layers', type=int, nargs='*', default=[200, 80],
+                        help='the number of hidden units of final fully connected layer')
+    args = parser.parse_args()
+
+    SEED = args.seed
     tf.set_random_seed(SEED)
     numpy.random.seed(SEED)
     random.seed(SEED)
-    if sys.argv[1] == 'train':
-        train(model_type=sys.argv[2], seed=SEED)
-    elif sys.argv[1] == 'test':
-        test(model_type=sys.argv[2], seed=SEED)
+
+    if args.mode == 'train':
+        train(model_type=args.model_type, seed=SEED, fc_size=args.fc_layers)
+    elif args.mode == 'test':
+        test(model_type=args.model_type, seed=SEED, fc_size=args.fc_layers)
     else:
         print('do nothing...')
 
