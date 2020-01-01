@@ -59,18 +59,25 @@ class Model(object):
 
     def build_fcn_net(self, inp, use_dice = False):
         bn1 = tf.layers.batch_normalization(inputs=inp, name='bn1')
-        dnn1 = tf.layers.dense(bn1, 200, activation=None, name='f1')
+        dnn1 = tf.layers.dense(bn1, 1024, activation=None, name='f1')
         if use_dice:
             dnn1 = dice(dnn1, name='dice_1')
         else:
             dnn1 = prelu(dnn1, 'prelu1')
 
-        dnn2 = tf.layers.dense(dnn1, 80, activation=None, name='f2')
+        dnn2 = tf.layers.dense(dnn1, 512, activation=None, name='f2')
         if use_dice:
             dnn2 = dice(dnn2, name='dice_2')
         else:
             dnn2 = prelu(dnn2, 'prelu2')
-        dnn3 = tf.layers.dense(dnn2, 2, activation=None, name='f3')
+           
+        dnn2_1 = tf.layers.dense(dnn2, 256, activation=None, name='f2_1')
+        if use_dice:
+            dnn2_1 = dice(dnn2_1, name='dice_2_1')
+        else:
+            dnn2_1 = prelu(dnn2_1, 'prelu2_1')
+            
+        dnn3 = tf.layers.dense(dnn2_1, 2, activation=None, name='f3')
         self.y_hat = tf.nn.softmax(dnn3) + 0.00000001
 
         with tf.name_scope('Metrics'):
