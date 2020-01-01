@@ -105,6 +105,7 @@ def eval(sess, test_data, model, model_path):
 
 def train(
         fc_size,
+        name,
         train_file = "local_train_splitByUser",
         test_file = "local_test_splitByUser",
         uid_voc = "uid_voc.pkl",
@@ -117,8 +118,8 @@ def train(
         model_type = 'DNN',
         seed = 2,
 ):
-    model_path = "dnn_save_path/ckpt_noshuff" + model_type + str(seed)
-    best_model_path = "dnn_best_model/ckpt_noshuff" + model_type + str(seed)
+    model_path = "dnn_save_path/ckpt_noshuff" + model_type + str(seed) + name
+    best_model_path = "dnn_best_model/ckpt_noshuff" + model_type + str(seed) + name
     gpu_options = tf.GPUOptions(allow_growth=True)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         train_data = DataIterator(train_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen, shuffle_each_epoch=False)
@@ -131,7 +132,7 @@ def train(
         elif model_type == 'Wide':
             model = Model_WideDeep(n_uid, n_mid, n_cat, fc_size, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'DIN':
-            model = Model_DIN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
+            model = Model_DIN(n_uid, n_mid, n_cat, fc_size, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'DIN-V2-gru-att-gru':
             model = Model_DIN_V2_Gru_att_Gru(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'DIN-V2-gru-gru-att':
@@ -170,7 +171,8 @@ def train(
                 if (iter % test_iter) == 0:
                     print('iter: %d ----> train_loss: %.4f ---- train_accuracy: %.4f ---- tran_aux_loss: %.4f' % \
                                           (iter, loss_sum / test_iter, accuracy_sum / test_iter, aux_loss_sum / test_iter))
-                    print('                                                                                          test_auc: %.4f ----test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % eval(sess, test_data, model, best_model_path))
+                    print('test_auc: %.4f ----test_loss: %.4f ---- test_accuracy: %.4f ---- test_aux_loss: %.4f' % eval(sess, test_data, model, best_model_path))
+                    print("Best AUC: ", best_auc)
                     loss_sum = 0.0
                     accuracy_sum = 0.0
                     aux_loss_sum = 0.0
@@ -181,6 +183,7 @@ def train(
 
 def test(
         fc_size,
+        name,
         train_file = "local_train_splitByUser",
         test_file = "local_test_splitByUser",
         uid_voc = "uid_voc.pkl",
@@ -192,7 +195,7 @@ def test(
         seed = 2
 ):
 
-    model_path = "dnn_best_model/ckpt_noshuff" + model_type + str(seed)
+    model_path = "dnn_best_model/ckpt_noshuff" + model_type + str(seed) + name
     gpu_options = tf.GPUOptions(allow_growth=True)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         train_data = DataIterator(train_file, uid_voc, mid_voc, cat_voc, batch_size, maxlen)
@@ -205,7 +208,7 @@ def test(
         elif model_type == 'Wide':
             model = Model_WideDeep(n_uid, n_mid, n_cat, fc_size, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'DIN':
-            model = Model_DIN(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
+            model = Model_DIN(n_uid, n_mid, n_cat, fc_size, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'DIN-V2-gru-att-gru':
             model = Model_DIN_V2_Gru_att_Gru(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE)
         elif model_type == 'DIN-V2-gru-gru-att':
@@ -226,22 +229,25 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train CTR prediction model')
     parser.add_argument('mode', type=str, choices=['train', 'test'],
                         help='train or test mode')
-    parser.add_argument('model-type', type=str, choices=['DNN', 'PNN', 'Wide', 'DIN', 'DIEN'],
+    parser.add_argument('model_type', type=str, choices=['DNN', 'PNN', 'Wide', 'DIN', 'DIEN'],
                         help="prediction model")
     parser.add_argument('--seed', type=int, default=3, help="random seed")
     parser.add_argument('--fc-layers', type=int, nargs='*', default=[200, 80],
                         help='the number of hidden units of final fully connected layer')
+    parser.add_argument('--name', type=str,
+                        help="experiment name")
     args = parser.parse_args()
 
     SEED = args.seed
     tf.set_random_seed(SEED)
     numpy.random.seed(SEED)
     random.seed(SEED)
-
+    
+    print(args)
     if args.mode == 'train':
-        train(model_type=args.model_type, seed=SEED, fc_size=args.fc_layers)
+        train(model_type=args.model_type, seed=SEED, fc_size=args.fc_layers, name=args.name)
     elif args.mode == 'test':
-        test(model_type=args.model_type, seed=SEED, fc_size=args.fc_layers)
+        test(model_type=args.model_type, seed=SEED, fc_size=args.fc_layers, name=args.name)
     else:
         print('do nothing...')
 

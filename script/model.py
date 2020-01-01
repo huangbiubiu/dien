@@ -316,7 +316,7 @@ class Model_PNN(Model):
 
 
 class Model_DIN(Model):
-    def __init__(self, n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE, use_negsampling=False):
+    def __init__(self, n_uid, n_mid, n_cat, fc_size, EMBEDDING_DIM, HIDDEN_SIZE, ATTENTION_SIZE, use_negsampling=False):
         super(Model_DIN, self).__init__(n_uid, n_mid, n_cat, EMBEDDING_DIM, HIDDEN_SIZE,
                                            ATTENTION_SIZE,
                                            use_negsampling)
@@ -328,7 +328,7 @@ class Model_DIN(Model):
             tf.summary.histogram('att_fea', att_fea)
         inp = tf.concat([self.uid_batch_embedded, self.item_eb, self.item_his_eb_sum, self.item_eb * self.item_his_eb_sum, att_fea], -1)
         # Fully connected layer
-        self.build_fcn_net(inp, use_dice=True)
+        self.build_fcn_net(inp=inp, fc_layers=fc_size, use_dice=True)
 
 
 class Model_DIN_V2_Gru_Vec_attGru_Neg(Model):
